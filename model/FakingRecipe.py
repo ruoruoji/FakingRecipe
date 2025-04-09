@@ -90,6 +90,7 @@ class DurationEncoding(nn.Module):
     def __init__(self,dim,dataset):
         super(DurationEncoding,self).__init__()
         if dataset=='fakett':
+            # todo sq
             #'./fea/fakett/fakett_segment_duration.json' record the duration of each clip(segment) for each video
             with open('./fea/fakett/fakett_segment_duration.json', 'r') as json_file:
                 seg_dura_info=json.load(json_file)

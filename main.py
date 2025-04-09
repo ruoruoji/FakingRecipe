@@ -6,6 +6,13 @@ import numpy as np
 import torch
 from run import Run
 
+# 核心功能：作为项目入口脚本，负责：
+# 1. 命令行参数解析
+# 2. 运行环境配置
+# 3. 全局配置初始化
+# 4. 主流程调度
+
+# 参数解析器配置
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='fakett', help='fakett/fakesv')
 parser.add_argument('--mode', default='inference_test', help='train/inference_test')
@@ -22,18 +29,16 @@ parser.add_argument('--path_ckp', default= './checkpoints/')
 parser.add_argument('--path_tb', default= './tensorboard/')
 args = parser.parse_args()
 
+# 环境初始化（确保实验可复现性）
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-os.environ['CUDA_LAUNCH_BLOCKING']='1'
-seed = args.seed
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed(args.seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
 
 print (args)
 
+# 配置字典构建（参数桥接）
 config={
     'dataset':args.dataset,
     'mode':args.mode,
@@ -49,6 +54,5 @@ config={
     'path_tb':args.path_tb
 }
 
-if __name__ == '__main__':
-    Run(config = config
-        ).main()
+# 主流程启动
+Run(config = config).main()
