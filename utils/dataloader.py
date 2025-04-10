@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 import pickle
 import h5py
 import json
-
+from config import DEVICE
 
 
 class FakingRecipe_Dataset(Dataset):

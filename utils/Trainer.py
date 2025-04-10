@@ -9,12 +9,13 @@ from sklearn.metrics import *
 from tqdm import tqdm
 from utils.metrics import *
 import copy
+from config import DEVICE
 
-
+# 在类开头添加设备声明
 class Trainer():
-    def __init__(self,model,device,lr,dataloaders,save_param_path,writer,early_stop,epoches,model_name,save_predict_result_path,beta_c,beta_n,scheduler_option=False,save_threshold = 0.7, start_epoch = 0):
+    def __init__(self, model, device, lr, dataloaders, save_param_path, writer, early_stop, epoches, model_name, save_predict_result_path, beta_c, beta_n, scheduler_option=False, save_threshold = 0.7, start_epoch = 0):
         self.model = model
-        self.device = device
+        self.device = torch.device(device)  # 将字符串转换为device对象
         self.model_name = model_name
         self.dataloaders = dataloaders
         self.start_epoch = start_epoch
@@ -51,10 +52,10 @@ class Trainer():
                     verbose=True)
             
             
+    # 修改验证阶段的设备分配
     def train(self):
         since = time.time()
-
-        self.model.cuda()
+        self.model.to(self.device)
 
         best_model_wts_test = copy.deepcopy(self.model.state_dict())
         best_f1_test = 0.0
@@ -83,7 +84,7 @@ class Trainer():
                 batch_data=batch
                 for k,v in batch_data.items():
                     if k!='vid':
-                        batch_data[k]=v.cuda()
+                        batch_data[k] = v.to(DEVICE)
                 labels = batch_data['label']
                 outputs,output_content,output_narative = self.model(**batch_data)
                                 
@@ -117,11 +118,11 @@ class Trainer():
             val_loss = 0.0 
             val_tpred = []
             val_tlabel = [] 
+            # VAL阶段数据迁移
             for batch in tqdm(self.dataloaders['val']):
-                batch_data=batch
                 for k,v in batch_data.items():
                     if k!='vid':
-                        batch_data[k]=v.cuda()
+                        batch_data[k] = v.to(self.device)  # 替换原.cuda()
                 labels = batch_data['label']
                 with torch.no_grad():
                     outputs,output_content,output_narative = self.model(**batch_data)
@@ -162,7 +163,7 @@ class Trainer():
     def test(self,ckp_path):
         self.model.load_state_dict(torch.load(ckp_path))
         since=time.time()
-        self.model.cuda()
+        self.model.to(self.device)  # 替换 self.model.cuda()
         self.model.eval()
         pred = []
         label = []
@@ -173,7 +174,7 @@ class Trainer():
                 batch_data=batch
                 for k,v in batch_data.items():
                     if k!='vid':
-                        batch_data[k]=v.cuda()
+                        batch_data[k]=v.to(DEVICE)
                 labels = batch_data['label']
                 outputs,output_content,output_narative = self.model(**batch_data)
                 label.extend(labels.tolist())
@@ -209,7 +210,7 @@ class Inferencer():
     def inference(self,ckp_path):
         self.model.load_state_dict(torch.load(ckp_path), strict=False)
         since=time.time()
-        self.model.cuda()
+        self.model.to(self.device)  # 替换 self.model.cuda()
         self.model.eval()
 
         label=[]
@@ -221,7 +222,7 @@ class Inferencer():
                 batch_data=batch
                 for k,v in batch_data.items():
                     if k!='vid':
-                        batch_data[k]=v.cuda()
+                        batch_data[k]=v.to(self.device)  # 替换原.cuda()
                 labels = batch_data['label']
                 outputs,output_content,output_narative = self.model(**batch_data)
                 label.extend(labels.tolist())

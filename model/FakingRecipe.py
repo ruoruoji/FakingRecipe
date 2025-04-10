@@ -5,6 +5,7 @@ from .trm import *
 import pandas as pd
 import json
 from .attention import *
+from config import DEVICE  # 新增全局设备配置
 
 class MSAM(torch.nn.Module):
     def __init__(self,dataset):
@@ -84,13 +85,13 @@ class PosEncoding_fix(nn.Module):
             else:
                 pos_embs.append(torch.zeros(self.d_word_vec))
         pos_embs=torch.stack(pos_embs)
-        return pos_embs.cuda()
+        return pos_embs.to(DEVICE)
 
+# 修改硬编码的CUDA设备分配
 class DurationEncoding(nn.Module):
-    def __init__(self,dim,dataset):
+    def __init__(self, dim, dataset):
         super(DurationEncoding,self).__init__()
         if dataset=='fakett':
-            # todo sq
             #'./fea/fakett/fakett_segment_duration.json' record the duration of each clip(segment) for each video
             with open('./fea/fakett/fakett_segment_duration.json', 'r') as json_file:
                 seg_dura_info=json.load(json_file)
@@ -98,11 +99,11 @@ class DurationEncoding(nn.Module):
             #'./fea/fakesv/fakesv_segment_duration.json' record the duration of each clip(segment) for each video
             with open('./fea/fakesv/fakesv_segment_duration.json', 'r') as json_file:
                 seg_dura_info=json.load(json_file)
-        
+
         self.all_seg_duration=seg_dura_info['all_seg_duration']
         self.all_seg_dura_ratio=seg_dura_info['all_seg_dura_ratio']
-        self.absolute_bin_edges=torch.quantile(torch.tensor(self.all_seg_duration).to(torch.float64),torch.range(0,1,0.01).to(torch.float64)).cuda()
-        self.relative_bin_edges=torch.quantile(torch.tensor( self.all_seg_dura_ratio).to(torch.float64),torch.range(0,1,0.02).to(torch.float64)).cuda()
+        self.absolute_bin_edges=torch.quantile(torch.tensor(self.all_seg_duration).to(torch.float64),torch.range(0,1,0.01).to(torch.float64)).to(DEVICE)
+        self.relative_bin_edges=torch.quantile(torch.tensor( self.all_seg_dura_ratio).to(torch.float64),torch.range(0,1,0.02).to(torch.float64)).to(DEVICE)
         self.ab_duration_embed=torch.nn.Embedding(101,dim)
         self.re_duration_embed=torch.nn.Embedding(51,dim)
 
@@ -110,8 +111,8 @@ class DurationEncoding(nn.Module):
 
         self.ocr_all_seg_duration=seg_dura_info['ocr_all_seg_duration']
         self.ocr_all_seg_dura_ratio=seg_dura_info['ocr_all_seg_dura_ratio']
-        self.ocr_absolute_bin_edges=torch.quantile(torch.tensor(self.ocr_all_seg_duration).to(torch.float64),torch.range(0,1,0.01).to(torch.float64)).cuda()
-        self.ocr_relative_bin_edges=torch.quantile(torch.tensor( self.ocr_all_seg_dura_ratio).to(torch.float64),torch.range(0,1,0.02).to(torch.float64)).cuda()
+        self.ocr_absolute_bin_edges=torch.quantile(torch.tensor(self.ocr_all_seg_duration).to(torch.float64),torch.range(0,1,0.01).to(torch.float64)).to(DEVICE)
+        self.ocr_relative_bin_edges=torch.quantile(torch.tensor( self.ocr_all_seg_dura_ratio).to(torch.float64),torch.range(0,1,0.02).to(torch.float64)).to(DEVICE)
         self.ocr_ab_duration_embed=torch.nn.Embedding(101,dim)
         self.ocr_re_duration_embed=torch.nn.Embedding(51,dim)
 
@@ -143,8 +144,8 @@ class DurationEncoding(nn.Module):
                 
 
         if len(all_segs_embedding)==0:
-            return torch.zeros((1,self.result_dim)).cuda() 
-        return torch.stack(all_segs_embedding,dim=0).cuda() 
+            return torch.zeros((1,self.result_dim)).to(DEVICE) 
+        return torch.stack(all_segs_embedding,dim=0).to(DEVICE) 
 
 
 def get_dura_info_visual(segs,fps,total_frame):
@@ -159,7 +160,7 @@ def get_dura_info_visual(segs,fps,total_frame):
             duration_frames.append(seg[1]-seg[0]+1)
             duration_time.append((seg[1]-seg[0]+1)/fps)
     duration_ratio=[min(dura/total_frame,1) for dura in duration_frames]
-    return torch.tensor(duration_time).cuda(),torch.tensor(duration_ratio).cuda()
+    return torch.tensor(duration_time).to(DEVICE),torch.tensor(duration_ratio).to(DEVICE)
 
 
 class MEAM(torch.nn.Module):
@@ -205,7 +206,7 @@ class MEAM(torch.nn.Module):
                 frames = F.pad(frames, (0, 0, 0, pad_amount), "constant", 0)
             padded_seg_frames.append(frames)
 
-        padded_seg_frames = torch.stack(padded_seg_frames).cuda()
+        padded_seg_frames = torch.stack(padded_seg_frames).to(DEVICE)
         aggregated_seg_fea=self.intraseg_att_v(padded_seg_frames)
         return  torch.mean(aggregated_seg_fea,1)
 
@@ -234,11 +235,11 @@ class MEAM(torch.nn.Module):
             seg_general_fea=v_seg_fea+dura_emd 
             
             #add position embedding
-            seg_index=torch.tensor([i for i in range(v_seg_fea.shape[0])]).cuda()
+            seg_index=torch.tensor([i for i in range(v_seg_fea.shape[0])]).to(DEVICE)
             seg_position_embedding=self.position_encoder(seg_index) 
             seg_general_fea=v_seg_fea+seg_position_embedding
             if seg_general_fea.shape[0]<self.pad_seg_count:
-                pad_seg=torch.zeros((self.pad_seg_count-seg_general_fea.shape[0],128)).cuda()
+                pad_seg=torch.zeros((self.pad_seg_count-seg_general_fea.shape[0],128)).to(DEVICE)
                 seg_general_fea=torch.cat([seg_general_fea,pad_seg],dim=0)
             v_temporal.append(seg_general_fea)
         v_temporal=torch.stack(v_temporal,dim=0) 
@@ -253,23 +254,23 @@ class MEAM(torch.nn.Module):
             ocr_phrase_fea=ocr_phrase_fea[:ocr_dura_emb.shape[0]]
             ocr_word_fea=ocr_phrase_fea+ocr_dura_emb
             #add position embedding
-            phrase_index=torch.tensor([i for i in range(ocr_re_emb.shape[0])]).cuda()
+            phrase_index=torch.tensor([i for i in range(ocr_re_emb.shape[0])]).to(DEVICE)
             phrase_position_embedding=self.position_encoder(phrase_index)
             ocr_word_fea=ocr_word_fea+phrase_position_embedding
         
             if ocr_word_fea.shape[0]<self.pad_ocr_phrase_count:
-                pad_phrase=torch.zeros((self.pad_ocr_phrase_count-ocr_word_fea.shape[0],128)).cuda()
+                pad_phrase=torch.zeros((self.pad_ocr_phrase_count-ocr_word_fea.shape[0],128)).to(DEVICE)
                 ocr_word_fea=torch.cat((ocr_word_fea,pad_phrase),dim=0)
             t_temporal.append(ocr_word_fea)
         t_temporal=torch.stack(t_temporal,dim=0) 
         
 
         narative_t=self.t_interseg_attention(t_temporal)
-        ocr_seg_count=torch.tensor([len(ocr_time_region[i]) for i in range(len(ocr_time_region))]).cuda()
+        ocr_seg_count=torch.tensor([len(ocr_time_region[i]) for i in range(len(ocr_time_region))]).to(DEVICE)
         narative_t=torch.sum(narative_t,dim=1)/ocr_seg_count.unsqueeze(1)
 
         narrative_v=self.v_interseg_attention(v_temporal)
-        v_seg_count=torch.tensor([len(visual_seg_paded[i]) for i in range(len(visual_seg_paded))]).cuda()
+        v_seg_count=torch.tensor([len(visual_seg_paded[i]) for i in range(len(visual_seg_paded))]).to(DEVICE)
         narrative_v=torch.sum(narrative_v,dim=1)/v_seg_count.unsqueeze(1) 
 
         narrative_multimodal_segs_fea=torch.cat((narative_t.unsqueeze(1),narrative_v.unsqueeze(1)),1)

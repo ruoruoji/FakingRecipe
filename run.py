@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.dataloader import *
 from utils.Trainer import *
 from model.FakingRecipe import *
+from config import DEVICE
 
 class Run():
     def __init__(self,config):
@@ -103,4 +104,6 @@ class Run():
                 dataloader=dataloader,
                 save_predict_result_path=save_predict_result_path
             )
-            result=inferncer.inference(self.inference_ckp)  # 加载预训练模型进行推理
+            result=inferncer.inference(self.inference_ckp)
+            self.model.to(DEVICE)  # 使用全局设备配置
+     

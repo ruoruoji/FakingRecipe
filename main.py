@@ -30,7 +30,10 @@ parser.add_argument('--path_tb', default= './tensorboard/')
 args = parser.parse_args()
 
 # 环境初始化（确保实验可复现性）
-os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+# 原GPU配置
+# os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)  # 需要删除或注释
+# 修改为
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'  # 可选调试配置
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 torch.backends.cudnn.benchmark = False
